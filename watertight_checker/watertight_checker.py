@@ -6,7 +6,7 @@ from bpy.props import BoolProperty, StringProperty, IntVectorProperty
 from mathutils import Vector
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.528.22"  # 28 мая 2025, 22-я ревизия
+PLUGIN_VERSION = "2025.528.23"  # 28 мая 2025, 23-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
