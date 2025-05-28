@@ -6,7 +6,7 @@ from bpy.props import BoolProperty, StringProperty, IntVectorProperty
 from mathutils import Vector
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.528.21"  # 28 мая 2025, 21-я ревизия
+PLUGIN_VERSION = "2025.528.22"  # 28 мая 2025, 22-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -159,6 +159,37 @@ class MESH_OT_check_watertight(Operator):
             
         return {'FINISHED'}
 
+class MESH_OT_recheck_watertight(Operator):
+    bl_idname = "mesh.recheck_watertight"
+    bl_label = "Recheck Watertight Geometry"
+    bl_description = "Обновляет меш и проверяет замкнутость"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    def execute(self, context):
+        # Запоминаем текущий режим активного объекта
+        active_obj = context.active_object
+        if active_obj:
+            prev_mode = active_obj.mode
+            was_in_edit_mode = prev_mode == 'EDIT'
+            
+            # Если были в режиме редактирования, переключаем в объектный режим
+            if was_in_edit_mode:
+                bpy.ops.object.mode_set(mode='OBJECT')
+                # Небольшая задержка для применения изменений
+                bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+            
+            # Выполняем проверку
+            bpy.ops.mesh.check_watertight()
+            
+            # Возвращаем в предыдущий режим
+            if was_in_edit_mode:
+                bpy.ops.object.mode_set(mode='EDIT')
+        else:
+            # Если нет активного объекта, просто выполняем проверку
+            bpy.ops.mesh.check_watertight()
+        
+        return {'FINISHED'}
+
 class MESH_OT_select_watertight_problems(Operator):
     """Выделить конкретный тип проблем"""
     bl_idname = "mesh.select_watertight_problems"
@@ -227,7 +258,6 @@ class MESH_OT_select_watertight_problems(Operator):
         bmesh.update_edit_mesh(mesh)
         
         # Оставляем пользователя в режиме редактирования
-        # (не возвращаем в исходный режим, чтобы видеть выделение)
         log_message("Выделение завершено. Остаемся в режиме редактирования.")
         return {'FINISHED'}
 
@@ -246,7 +276,11 @@ class VIEW3D_PT_watertight_panel(Panel):
         row.label(text=f"Watertight Checker v{PLUGIN_VERSION}", icon='MESH_CUBE')
         
         col = layout.column()
-        col.operator(MESH_OT_check_watertight.bl_idname)
+        
+        # Кнопки Check и Recheck в одном ряду
+        row = col.row(align=True)
+        row.operator(MESH_OT_check_watertight.bl_idname, text="Check")
+        row.operator(MESH_OT_recheck_watertight.bl_idname, text="Recheck")
         
         # Кнопки выделения проблем
         # Преобразуем строку обратно в множество
@@ -326,6 +360,7 @@ class VIEW3D_PT_watertight_panel(Panel):
 # Определяем классы ПОСЛЕ их объявления
 classes = (
     MESH_OT_check_watertight,
+    MESH_OT_recheck_watertight,
     MESH_OT_select_watertight_problems,
     VIEW3D_PT_watertight_panel,
 )
