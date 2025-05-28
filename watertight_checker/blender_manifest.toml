@@ -1,0 +1,32 @@
+schema_version = "1.0.0"
+id = "watertight_mesh_checker"
+version = "1.0.0"
+name = "Watertight Mesh Checker"
+type = "add-on"
+tagline = "Проверяет замкнутость геометрии для корректной работы Cull Front и shadow maps"
+maintainer = "Roman Ilyin <[email protected]>"
+license = ["SPDX:MIT"]
+blender_version_min = "4.4.0"
+blender_version_max = "4.4.3"
+
+description = """
+Плагин проверяет меши на полную замкнутость (watertight), 
+чтобы исключить протечки при симуляциях жидкостей 
+и артефакты теней при использовании Cull Front.
+"""
+
+# Дополнительные параметры (рекомендуемые)
+website = "https://t.me/gamedev_stinger"
+copyright = ["2025 Roman Ilyin"]
+category = "Mesh"
+platforms = ["windows-x64", "linux-x64", "macos-arm64"]
+
+[permissions]
+files = "Сохранение отчетов об ошибках в текстовые файлы"
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "*.zip",
+  ".gitignore"
+]
