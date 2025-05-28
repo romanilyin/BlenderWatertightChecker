@@ -6,7 +6,7 @@ from bpy.props import BoolProperty, StringProperty, IntVectorProperty
 from mathutils import Vector
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.528.18"  # 28 мая 2025, 18-я ревизия
+PLUGIN_VERSION = "2025.528.19"  # 28 мая 2025, 19-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -204,10 +204,9 @@ class MESH_OT_select_watertight_problems(Operator):
         # Обновляем меш
         bmesh.update_edit_mesh(mesh)
         
-        # Возвращаем в исходный режим
-        if current_mode != 'EDIT':
-            bpy.ops.object.mode_set(mode=current_mode)
-            
+        # Оставляем пользователя в режиме редактирования
+        # (не возвращаем в исходный режим, чтобы видеть выделение)
+        log_message("Выделение завершено. Остаемся в режиме редактирования.")
         return {'FINISHED'}
 
 class VIEW3D_PT_watertight_panel(Panel):
