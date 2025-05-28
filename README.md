@@ -31,7 +31,7 @@
 ## Установка
 
 1. Скачайте последнюю версию расширения:
-   - [Ссылка для скачивания](https://github.com/yourusername/BlenderWatertightChecker/releases/latest)
+   - [Ссылка для скачивания](https://github.com/romanilyin/BlenderWatertightChecker/releases)
 
 2. В Blender:
    - Откройте `Edit > Preferences > Add-ons`
