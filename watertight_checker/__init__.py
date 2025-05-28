@@ -1,4 +1,3 @@
-# __init__.py
 from . import watertight_checker
 
 def register():
