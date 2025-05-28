@@ -6,7 +6,7 @@ from bpy.props import BoolProperty, StringProperty, IntVectorProperty
 from mathutils import Vector
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.528.19"  # 28 мая 2025, 19-я ревизия
+PLUGIN_VERSION = "2025.528.21"  # 28 мая 2025, 21-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -36,11 +36,33 @@ class MESH_OT_check_watertight(Operator):
             self.report({'INFO'}, "Нет выделенных объектов для проверки")
             return {'CANCELLED'}
         
+        # Сброс кэшированных данных на всех объектах перед началом новой проверки
+        for obj in context.selected_objects:
+            if hasattr(obj, PREFIX + "boundary_edges"):
+                obj[PREFIX + "boundary_edges"] = []
+            if hasattr(obj, PREFIX + "loose_verts"):
+                obj[PREFIX + "loose_verts"] = []
+            if hasattr(obj, PREFIX + "inverted_normals"):
+                obj[PREFIX + "inverted_normals"] = []
+            if hasattr(obj, PREFIX + "non_manifold_edges"):
+                obj[PREFIX + "non_manifold_edges"] = []
+            if hasattr(obj, PREFIX + "non_manifold_verts"):
+                obj[PREFIX + "non_manifold_verts"] = []
+        
         for obj in context.selected_objects:
             if obj.type != 'MESH':
                 continue
 
             mesh = obj.data
+            
+            # Очистка кэшированных данных для текущего объекта
+            obj[PREFIX + "boundary_edges"] = []
+            obj[PREFIX + "loose_verts"] = []
+            obj[PREFIX + "inverted_normals"] = []
+            obj[PREFIX + "non_manifold_edges"] = []
+            obj[PREFIX + "non_manifold_verts"] = []
+            
+            # Принудительное обновление данных меша
             bm = bmesh.new()
             bm.from_mesh(mesh)
             bm.edges.ensure_lookup_table()
