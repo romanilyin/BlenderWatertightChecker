@@ -7,7 +7,7 @@ from mathutils import Vector
 from bpy_extras import view3d_utils
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.530.2"  # 30 мая 2025, 2-я ревизия
+PLUGIN_VERSION = "2025.530.3"  # 30 мая 2025, 3-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -295,16 +295,12 @@ class MESH_OT_select_watertight_problems(Operator):
 
     @staticmethod
     def focus_on_location(context, location):
-        """Фокусирует камеру на конкретной локации"""
+        """Фокусирует камеру на конкретной локации без изменения масштаба"""
         region = context.region
         rv3d = context.region_data
         
         # Центрируем вид на локации
         rv3d.view_location = location
-        
-        # Масштабируем вид, чтобы элемент был хорошо виден
-        distance = (rv3d.view_location - rv3d.view_matrix.translation).length
-        rv3d.view_distance = max(distance * 0.5, 0.1)
         
         # Обновляем вид
         context.area.tag_redraw()
@@ -340,11 +336,11 @@ class MESH_OT_focus_problem_element(Operator):
         # Получаем список элементов для текущей проблемы
         elements = []
         if problem_type == 'BOUNDARY':
-            elements = obj.get(PREFIX + "boundary_edges", [])
+            elements = list(obj.get(PREFIX + "boundary_edges", []))
         elif problem_type == 'LOOSE':
-            elements = obj.get(PREFIX + "loose_verts", [])
+            elements = list(obj.get(PREFIX + "loose_verts", []))
         elif problem_type == 'NORMALS':
-            elements = obj.get(PREFIX + "inverted_normals", [])
+            elements = list(obj.get(PREFIX + "inverted_normals", []))
         elif problem_type == 'MANIFOLD':
             # Преобразуем IDPropertyArray в списки
             edges = list(obj.get(PREFIX + "non_manifold_edges", []))
@@ -396,7 +392,7 @@ class MESH_OT_focus_problem_element(Operator):
             elif isinstance(element, bmesh.types.BMFace):
                 center = element.calc_center_median()
             
-            # Фокусируем камеру на элементе
+            # Фокусируем камеру на элементе без изменения масштаба
             MESH_OT_select_watertight_problems.focus_on_location(context, center)
             self.report({'INFO'}, f"Фокус на элементе {current_index+1}/{len(elements)}")
         else:
