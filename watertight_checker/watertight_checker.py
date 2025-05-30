@@ -2,11 +2,12 @@ import bpy
 import bmesh
 import traceback
 from bpy.types import Operator, Panel
-from bpy.props import BoolProperty, StringProperty, IntVectorProperty
+from bpy.props import BoolProperty, StringProperty, IntVectorProperty, IntProperty, EnumProperty
 from mathutils import Vector
+from bpy_extras import view3d_utils
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.528.23"  # 28 мая 2025, 23-я ревизия
+PLUGIN_VERSION = "2025.530.2"  # 30 мая 2025, 2-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -196,7 +197,7 @@ class MESH_OT_select_watertight_problems(Operator):
     bl_label = "Select Specific Problems"
     bl_options = {'REGISTER', 'UNDO'}
     
-    problem_type: bpy.props.StringProperty(
+    problem_type: StringProperty(
         name="Problem Type",
         description="Тип проблемы для выделения"
     )
@@ -224,41 +225,184 @@ class MESH_OT_select_watertight_problems(Operator):
         bm.faces.ensure_lookup_table()
         bm.verts.ensure_lookup_table()
         
+        # Список для сбора всех проблемных элементов
+        all_elements = []
+        
         # Выделяем в зависимости от типа проблемы
         if self.problem_type == 'BOUNDARY':
             indices = obj.get(PREFIX + "boundary_edges", [])
             log_message(f"Найдено {len(indices)} граничных ребер")
             for idx in indices:
                 if idx < len(bm.edges):
-                    bm.edges[idx].select = True
+                    edge = bm.edges[idx]
+                    edge.select = True
+                    all_elements.append(edge)
         elif self.problem_type == 'LOOSE':
             indices = obj.get(PREFIX + "loose_verts", [])
             log_message(f"Найдено {len(indices)} неплотных вершин")
             for idx in indices:
                 if idx < len(bm.verts):
-                    bm.verts[idx].select = True
+                    vert = bm.verts[idx]
+                    vert.select = True
+                    all_elements.append(vert)
         elif self.problem_type == 'NORMALS':
             indices = obj.get(PREFIX + "inverted_normals", [])
             log_message(f"Найдено {len(indices)} полигонов с перевернутыми нормалями")
             for idx in indices:
                 if idx < len(bm.faces):
-                    bm.faces[idx].select = True
+                    face = bm.faces[idx]
+                    face.select = True
+                    all_elements.append(face)
         elif self.problem_type == 'MANIFOLD':
             indices_edges = obj.get(PREFIX + "non_manifold_edges", [])
             indices_verts = obj.get(PREFIX + "non_manifold_verts", [])
             log_message(f"Найдено {len(indices_edges)} не manifold ребер и {len(indices_verts)} не manifold вершин")
             for idx in indices_edges:
                 if idx < len(bm.edges):
-                    bm.edges[idx].select = True
+                    edge = bm.edges[idx]
+                    edge.select = True
+                    all_elements.append(edge)
             for idx in indices_verts:
                 if idx < len(bm.verts):
-                    bm.verts[idx].select = True
+                    vert = bm.verts[idx]
+                    vert.select = True
+                    all_elements.append(vert)
         
         # Обновляем меш
         bmesh.update_edit_mesh(mesh)
         
+        # Сохраняем тип проблемы для навигации
+        context.scene[PREFIX + "current_problem_type"] = self.problem_type
+        context.scene[PREFIX + "current_focus_index"] = -1  # Сброс индекса
+        
+        # Фокусируем камеру на всем проблемном участке
+        if all_elements:
+            center = Vector()
+            for element in all_elements:
+                if isinstance(element, bmesh.types.BMVert):
+                    center += element.co
+                elif isinstance(element, bmesh.types.BMEdge):
+                    center += (element.verts[0].co + element.verts[1].co) / 2
+                elif isinstance(element, bmesh.types.BMFace):
+                    center += element.calc_center_median()
+            
+            center /= len(all_elements)
+            self.focus_on_location(context, center)
+        
         # Оставляем пользователя в режиме редактирования
         log_message("Выделение завершено. Остаемся в режиме редактирования.")
+        return {'FINISHED'}
+
+    @staticmethod
+    def focus_on_location(context, location):
+        """Фокусирует камеру на конкретной локации"""
+        region = context.region
+        rv3d = context.region_data
+        
+        # Центрируем вид на локации
+        rv3d.view_location = location
+        
+        # Масштабируем вид, чтобы элемент был хорошо виден
+        distance = (rv3d.view_location - rv3d.view_matrix.translation).length
+        rv3d.view_distance = max(distance * 0.5, 0.1)
+        
+        # Обновляем вид
+        context.area.tag_redraw()
+
+class MESH_OT_focus_problem_element(Operator):
+    """Фокусирует камеру на проблемном элементе"""
+    bl_idname = "mesh.focus_problem_element"
+    bl_label = "Focus on Problem Element"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    direction: EnumProperty(
+        items=[
+            ('PREV', "Previous", "Фокус на предыдущем элементе"),
+            ('NEXT', "Next", "Фокус на следующем элементе")
+        ],
+        default='NEXT'
+    )
+    
+    def execute(self, context):
+        obj = context.active_object
+        if not obj or obj.type != 'MESH':
+            self.report({'ERROR'}, "Выделите mesh-объект")
+            return {'CANCELLED'}
+        
+        scene = context.scene
+        problem_type = scene.get(PREFIX + "current_problem_type", "")
+        current_index = scene.get(PREFIX + "current_focus_index", -1)
+        
+        if not problem_type:
+            self.report({'INFO'}, "Сначала выделите проблему")
+            return {'CANCELLED'}
+        
+        # Получаем список элементов для текущей проблемы
+        elements = []
+        if problem_type == 'BOUNDARY':
+            elements = obj.get(PREFIX + "boundary_edges", [])
+        elif problem_type == 'LOOSE':
+            elements = obj.get(PREFIX + "loose_verts", [])
+        elif problem_type == 'NORMALS':
+            elements = obj.get(PREFIX + "inverted_normals", [])
+        elif problem_type == 'MANIFOLD':
+            # Преобразуем IDPropertyArray в списки
+            edges = list(obj.get(PREFIX + "non_manifold_edges", []))
+            verts = list(obj.get(PREFIX + "non_manifold_verts", []))
+            elements = edges + verts
+        
+        if not elements:
+            self.report({'INFO'}, "Проблемные элементы не найдены")
+            return {'CANCELLED'}
+        
+        # Обновляем индекс в зависимости от направления
+        if self.direction == 'NEXT':
+            current_index = (current_index + 1) % len(elements)
+        else:
+            current_index = (current_index - 1) % len(elements)
+        
+        scene[PREFIX + "current_focus_index"] = current_index
+        element_idx = elements[current_index]
+        
+        # Создаем BMesh для доступа к геометрии
+        mesh = obj.data
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.edges.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+        
+        # Получаем элемент по индексу
+        element = None
+        if problem_type == 'BOUNDARY' and element_idx < len(bm.edges):
+            element = bm.edges[element_idx]
+        elif problem_type == 'LOOSE' and element_idx < len(bm.verts):
+            element = bm.verts[element_idx]
+        elif problem_type == 'NORMALS' and element_idx < len(bm.faces):
+            element = bm.faces[element_idx]
+        elif problem_type == 'MANIFOLD':
+            # Для non-manifold проверяем оба типа элементов
+            if element_idx < len(bm.edges):
+                element = bm.edges[element_idx]
+            elif element_idx < len(bm.edges) + len(bm.verts):
+                element = bm.verts[element_idx - len(bm.edges)]
+        
+        if element:
+            # Вычисляем центр элемента
+            if isinstance(element, bmesh.types.BMVert):
+                center = element.co
+            elif isinstance(element, bmesh.types.BMEdge):
+                center = (element.verts[0].co + element.verts[1].co) / 2
+            elif isinstance(element, bmesh.types.BMFace):
+                center = element.calc_center_median()
+            
+            # Фокусируем камеру на элементе
+            MESH_OT_select_watertight_problems.focus_on_location(context, center)
+            self.report({'INFO'}, f"Фокус на элементе {current_index+1}/{len(elements)}")
+        else:
+            self.report({'WARNING'}, "Элемент не найден")
+        
+        bm.free()
         return {'FINISHED'}
 
 class VIEW3D_PT_watertight_panel(Panel):
@@ -308,6 +452,22 @@ class VIEW3D_PT_watertight_panel(Panel):
             if "MANIFOLD" in error_types:
                 op = row.operator("mesh.select_watertight_problems", text="Non-manifold")
                 op.problem_type = 'MANIFOLD'
+            
+            # Кнопки навигации по проблемным элементам
+            problem_type = scene.get(PREFIX + "current_problem_type", "")
+            if problem_type and problem_type in error_types:
+                nav_box = box.box()
+                nav_box.label(text="Фокус на элементах:")
+                
+                row = nav_box.row(align=True)
+                op_prev = row.operator("mesh.focus_problem_element", text="", icon='TRIA_LEFT')
+                op_prev.direction = 'PREV'
+                
+                # Отображение текущей позиции
+                row.label(text=f"Позиция: {scene.get(PREFIX + 'current_focus_index', -1) + 1}/{self.get_element_count(context, problem_type)}")
+                
+                op_next = row.operator("mesh.focus_problem_element", text="", icon='TRIA_RIGHT')
+                op_next.direction = 'NEXT'
         
         # Предупреждение о проверке нормалей
         warning_box = layout.box()
@@ -357,11 +517,31 @@ class VIEW3D_PT_watertight_panel(Panel):
                     row.operator("mesh.delete_loose", text="Удалить лишнее (Delete Loose)")
                     row.operator("mesh.intersect_boolean", text="Применить Boolean").operation = 'DIFFERENCE'
 
+    def get_element_count(self, context, problem_type):
+        """Возвращает количество элементов для текущей проблемы"""
+        obj = context.active_object
+        if not obj or obj.type != 'MESH':
+            return 0
+        
+        if problem_type == 'BOUNDARY':
+            return len(obj.get(PREFIX + "boundary_edges", []))
+        elif problem_type == 'LOOSE':
+            return len(obj.get(PREFIX + "loose_verts", []))
+        elif problem_type == 'NORMALS':
+            return len(obj.get(PREFIX + "inverted_normals", []))
+        elif problem_type == 'MANIFOLD':
+            edges = len(obj.get(PREFIX + "non_manifold_edges", []))
+            verts = len(obj.get(PREFIX + "non_manifold_verts", []))
+            return edges + verts
+        
+        return 0
+
 # Определяем классы ПОСЛЕ их объявления
 classes = (
     MESH_OT_check_watertight,
     MESH_OT_recheck_watertight,
     MESH_OT_select_watertight_problems,
+    MESH_OT_focus_problem_element,
     VIEW3D_PT_watertight_panel,
 )
 
@@ -402,6 +582,29 @@ def register():
             log_message("Свойство сцены wtc_error_types создано")
     except Exception as e:
         log_message(f"Ошибка создания wtc_error_types: {str(e)}")
+        log_message(traceback.format_exc())
+    
+    try:
+        if not hasattr(bpy.types.Scene, PREFIX + "current_problem_type"):
+            bpy.types.Scene.wtc_current_problem_type = StringProperty(
+                name="Current Problem Type",
+                default=""
+            )
+            log_message("Свойство сцены wtc_current_problem_type создано")
+    except Exception as e:
+        log_message(f"Ошибка создания wtc_current_problem_type: {str(e)}")
+        log_message(traceback.format_exc())
+    
+    try:
+        if not hasattr(bpy.types.Scene, PREFIX + "current_focus_index"):
+            bpy.types.Scene.wtc_current_focus_index = IntProperty(
+                name="Current Focus Index",
+                default=-1,
+                min=-1
+            )
+            log_message("Свойство сцены wtc_current_focus_index создано")
+    except Exception as e:
+        log_message(f"Ошибка создания wtc_current_focus_index: {str(e)}")
         log_message(traceback.format_exc())
     
     # Свойства объектов
@@ -451,7 +654,7 @@ def safe_unregister():
         "wtc_non_manifold_edges", 
         "wtc_non_manifold_verts"
     ]
-    scene_props = ["wtc_report", "wtc_error_types"]
+    scene_props = ["wtc_report", "wtc_error_types", "wtc_current_problem_type", "wtc_current_focus_index"]
     
     # Удаляем свойства объектов
     for prop in obj_props:

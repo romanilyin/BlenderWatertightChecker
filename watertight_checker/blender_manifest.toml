@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "watertight_mesh_checker"
-version = "2025.528.23"
+version = "2025.530.2"
 name = "Watertight Mesh Checker"
 type = "add-on"
 tagline = "Проверяет замкнутость геометрии для корректной работы Cull Front и shadow maps"
@@ -10,7 +10,7 @@ blender_version_min = "4.4.0"
 
 description = """
 Плагин проверяет меши на полную замкнутость (watertight), 
-чтобы исключить протечки при симуляциях жидкостей 
+чтобы исключить протежки при симуляциях жидкостей 
 и артефакты теней при использовании Cull Front.
 """
 
