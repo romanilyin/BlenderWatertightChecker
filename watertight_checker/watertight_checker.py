@@ -9,7 +9,7 @@ from bpy_extras import view3d_utils
 from bpy.app.translations import pgettext as _, pgettext_data as data_
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.530.4"  # 30 мая 2025, 4-я ревизия
+PLUGIN_VERSION = "2025.530.5"  # 30 мая 2025, 5-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -236,26 +236,26 @@ class MESH_OT_check_watertight(Operator):
             # Формирование отчета с пояснениями и рекомендациями
             errors = []
             if boundary_edges:
-                errors.append(_("Open boundaries: {count} edges (<2 faces)").format(count=len(boundary_edges)))
-                errors.append(_("Fill holes"))
-                errors.append(_("Connect edges"))
+                errors.append("❌ " + _("Open boundaries: {count} edges (<2 faces)").format(count=len(boundary_edges)))
+                errors.append("   - " + _("Fill holes"))
+                errors.append("   - " + _("Connect edges"))
                 
             if loose_verts:
-                errors.append(_("Loose geometry: {count} vertices (<2 edges)").format(count=len(loose_verts)))
-                errors.append(_("Merge by distance"))
-                errors.append(_("Delete extra vertices"))
+                errors.append("❌ " + _("Loose geometry: {count} vertices (<2 edges)").format(count=len(loose_verts)))
+                errors.append("   - " + _("Merge by distance"))
+                errors.append("   - " + _("Delete extra vertices"))
                 
             if inverted_normals:
-                errors.append(_("Inverted normals: {count} polygons").format(count=len(inverted_normals)))
-                errors.append(_("Flip normals"))
-                errors.append(_("Recalculate outward"))
+                errors.append("❌ " + _("Inverted normals: {count} polygons").format(count=len(inverted_normals)))
+                errors.append("   - " + _("Flip normals"))
+                errors.append("   - " + _("Recalculate outward"))
                 
             if non_manifold_edges or non_manifold_verts:
-                errors.append(_("Non-manifold: {edges} edges, {verts} vertices").format(
+                errors.append("❌ " + _("Non-manifold: {edges} edges, {verts} vertices").format(
                     edges=len(non_manifold_edges), 
                     verts=len(non_manifold_verts)))
-                errors.append(_("Delete internal surfaces"))
-                errors.append(_("Apply boolean operation"))
+                errors.append("   - " + _("Delete internal surfaces"))
+                errors.append("   - " + _("Apply boolean operation"))
 
             status = _("Watertight") if not errors else _("Not watertight")
             status_symbol = "✅ " + status if not errors else "❌ " + status
@@ -612,14 +612,16 @@ class VIEW3D_PT_watertight_panel(Panel):
             
             # Отчет о проблемах
             for line in report.split('\n'):
-                # Для заголовков объектов используем другой стиль
-                if "✅" in line or "❌" in line:
-                    row = box.row()
-                    row.alert = "❌" in line
-                    row.label(text=line, icon='OBJECT_DATA' if "✅" in line or "❌" in line else 'DOT')
+                # Определяем стиль строки
+                is_error_line = "❌" in line
+                is_object_line = any(line.startswith(obj.name) for obj in context.selected_objects) and (is_error_line or "✅" in line)
+                
+                row = box.row()
+                row.alert = is_error_line
+                
+                if is_object_line:
+                    row.label(text=line, icon='OBJECT_DATA')
                 else:
-                    row = box.row()
-                    row.alert = "❌" in line
                     row.label(text=line)
             
             # Дополнительные решения

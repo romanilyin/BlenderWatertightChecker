@@ -5,156 +5,156 @@ msgstr ""
 "POT-Creation-Date: 2025-05-30 12:00+0000\n"
 "PO-Revision-Date: 2025-05-30 12:00+0000\n"
 "Last-Translator: Roman Ilyin <[email protected]>\n"
-"Language-Team: English\n"
-"Language: en_US\n"
+"Language-Team: Russian\n"
+"Language: ru_RU\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
 msgid "Check Watertight Geometry"
-msgstr "Check Watertight Geometry"
+msgstr "Проверить замкнутость геометрии (Watertight Geometry)"
 
 msgid "Recheck Watertight Geometry"
-msgstr "Recheck Watertight Geometry"
+msgstr "Перепроверить замкнутость геометрии (Recheck Watertight)"
 
 msgid "Select Specific Problems"
-msgstr "Select Specific Problems"
+msgstr "Выделить конкретные проблемы"
 
 msgid "Focus on Problem Element"
-msgstr "Focus on Problem Element"
+msgstr "Сфокусироваться на проблемном элементе"
 
 msgid "Watertight Checker"
-msgstr "Watertight Checker"
+msgstr "Проверка замкнутости"
 
 msgid "Check"
-msgstr "Check"
+msgstr "Проверить"
 
 msgid "Recheck"
-msgstr "Recheck"
+msgstr "Перепроверить"
 
 msgid "Select problems:"
-msgstr "Select problems:"
+msgstr "Выделить проблемы:"
 
 msgid "Open boundaries"
-msgstr "Open boundaries"
+msgstr "Открытые границы (Open boundaries)"
 
 msgid "Loose geometry"
-msgstr "Loose geometry"
+msgstr "Неплотные соединения (Loose geometry)"
 
 msgid "Inverted normals"
-msgstr "Inverted normals"
+msgstr "Перевернутые нормали (Inverted normals)"
 
 msgid "Non-manifold"
-msgstr "Non-manifold"
+msgstr "Всратая (Non-manifold) геометрия"
 
 msgid "Focus on elements:"
-msgstr "Focus on elements:"
+msgstr "Фокус на элементах:"
 
 msgid "Position:"
-msgstr "Position:"
+msgstr "Позиция:"
 
 msgid "Previous"
-msgstr "Previous"
+msgstr "Предыдущий"
 
 msgid "Next"
-msgstr "Next"
+msgstr "Следующий"
 
 msgid "Additional solutions:"
-msgstr "Additional solutions:"
+msgstr "Дополнительные решения:"
 
 msgid "Fill holes (Fill)"
-msgstr "Fill holes (Fill)"
+msgstr "Заполнить отверстия (Fill)"
 
 msgid "Connect edges (Bridge)"
-msgstr "Connect edges (Bridge)"
+msgstr "Соединить края (Bridge)"
 
 msgid "Merge by Distance"
-msgstr "Merge by Distance"
+msgstr "Объединить по расстоянию (Merge by Distance)"
 
 msgid "Delete extra"
-msgstr "Delete extra"
+msgstr "Удалить лишнее (Delete)"
 
 msgid "Flip Normals"
-msgstr "Flip Normals"
+msgstr "Перевернуть нормали (Flip Normals)"
 
 msgid "Recalculate Outside"
-msgstr "Recalculate Outside"
+msgstr "Выровнять наружу (Recalculate Outside)"
 
 msgid "Delete Loose"
-msgstr "Delete Loose"
+msgstr "Удалить лишнее (Delete Loose)"
 
 msgid "Apply Boolean"
-msgstr "Apply Boolean"
+msgstr "Применить Boolean"
 
 msgid "No selected objects to check"
-msgstr "No selected objects to check"
+msgstr "Нет выделенных объектов для проверки"
 
 msgid "Geometry problems detected"
-msgstr "Geometry problems detected"
+msgstr "Обнаружены проблемы в геометрии"
 
 msgid "All meshes are watertight"
-msgstr "All meshes are watertight"
+msgstr "Все меши замкнуты"
 
 msgid "Select a mesh object"
-msgstr "Select a mesh object"
+msgstr "Выделите mesh-объект"
 
 msgid "First select a problem"
-msgstr "First select a problem"
+msgstr "Сначала выделите проблему"
 
 msgid "No problem elements found"
-msgstr "No problem elements found"
+msgstr "Проблемные элементы не найдены"
 
 msgid "Focus on element {index}/{total}"
-msgstr "Focus on element {index}/{total}"
+msgstr "Фокус на элементе {index}/{total}"
 
 msgid "Element not found"
-msgstr "Element not found"
+msgstr "Элемент не найден"
 
 msgid "Normal check is only reliable for convex objects"
-msgstr "Normal check is only reliable for convex objects"
+msgstr "Проверка нормалей корректна только для выпуклых объектов"
 
 msgid "For concave shapes use standard normal analysis tools"
-msgstr "For concave shapes use standard normal analysis tools"
+msgstr "Для вогнутых форм используйте стандартные инструменты анализа нормалей"
 
 msgid "Open boundaries: {count} edges (<2 faces)"
-msgstr "Open boundaries: {count} edges (<2 faces)"
+msgstr "Открытые границы (Open boundaries): {count} ребер (<2 граней)"
 
 msgid "Loose geometry: {count} vertices (<2 edges)"
-msgstr "Loose geometry: {count} vertices (<2 edges)"
+msgstr "Неплотные соединения (Loose geometry): {count} вершин (<2 ребер)"
 
 msgid "Inverted normals: {count} polygons"
-msgstr "Inverted normals: {count} polygons"
+msgstr "Перевернутые нормали (Inverted normals): {count} полигонов"
 
 msgid "Non-manifold: {edges} edges, {verts} vertices"
-msgstr "Non-manifold: {edges} edges, {verts} vertices"
+msgstr "Non-manifold: {edges} ребер, {verts} вершин"
 
 msgid "Watertight"
-msgstr "Watertight"
+msgstr "✅ Замкнут (Watertight)"
 
 msgid "Not watertight"
-msgstr "Not watertight"
+msgstr "❌ НЕ замкнут (Not watertight)"
 
 msgid "Fill holes"
-msgstr "Fill holes"
+msgstr "   - Заполнить отверстия (Fill)"
 
 msgid "Connect edges"
-msgstr "Connect edges"
+msgstr "   - Соединить края (Bridge Edge Loops)"
 
 msgid "Merge by distance"
-msgstr "Merge by distance"
+msgstr "   - Объединить по расстоянию (Merge by Distance)"
 
 msgid "Delete extra vertices"
-msgstr "Delete extra vertices"
+msgstr "   - Удалить лишние вершины (Delete Vertices)"
 
 msgid "Flip normals"
-msgstr "Flip normals"
+msgstr "   - Перевернуть нормали (Flip Normals)"
 
 msgid "Recalculate outward"
-msgstr "Recalculate outward"
+msgstr "   - Выровнять наружу (Recalculate Outside)"
 
 msgid "Delete internal surfaces"
-msgstr "Delete internal surfaces"
+msgstr "   - Удалить внутренние поверхности (Delete Loose)"
 
 msgid "Apply boolean operation"
-msgstr "Apply boolean operation"
+msgstr "   - Применить Boolean (Boolean Operation)"
