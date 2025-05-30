@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "watertight_mesh_checker"
-version = "2025.530.3"
+version = "2025.530.4"
 name = "Watertight Mesh Checker"
 type = "add-on"
 tagline = "Проверяет замкнутость геометрии для корректной работы Cull Front и shadow maps"
@@ -22,6 +22,9 @@ platforms = ["windows-x64", "linux-x64", "macos-arm64"]
 
 [permissions]
 files = "Сохранение отчетов об ошибках в текстовые файлы"
+
+[localization]
+locale_path = "locale"
 
 [build]
 paths_exclude_pattern = [

@@ -1,13 +1,15 @@
 import bpy
 import bmesh
 import traceback
+import os
 from bpy.types import Operator, Panel
 from bpy.props import BoolProperty, StringProperty, IntVectorProperty, IntProperty, EnumProperty
 from mathutils import Vector
 from bpy_extras import view3d_utils
+from bpy.app.translations import pgettext as _, pgettext_data as data_
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.530.3"  # 30 мая 2025, 3-я ревизия
+PLUGIN_VERSION = "2025.530.4"  # 30 мая 2025, 4-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -16,10 +18,139 @@ PREFIX = "wtc_"
 def log_message(message):
     print(f"[Watertight Checker] {message}")
 
+# Функции для локализации
+def TIP_(message):
+    return pgettext_tip(message)
+
+def DATA_(message):
+    return pgettext_data(message)
+
+# Создаем контекстные переводы
+def register_translations():
+    ru_translations = {
+        # Операторы
+        ("Operator", "Check Watertight Geometry"): "Проверить замкнутость геометрии (Watertight Geometry)",
+        ("Operator", "Recheck Watertight Geometry"): "Перепроверить замкнутость геометрии (Recheck Watertight)",
+        ("Operator", "Select Specific Problems"): "Выделить конкретные проблемы",
+        ("Operator", "Focus on Problem Element"): "Сфокусироваться на проблемном элементе",
+        
+        # Панель
+        ("*", "Watertight Checker"): "Проверка замкнутости",
+        ("*", "Check"): "Проверить",
+        ("*", "Recheck"): "Перепроверить",
+        ("*", "Select problems:"): "Выделить проблемы:",
+        ("*", "Open boundaries"): "Открытые границы (Open boundaries)",
+        ("*", "Loose geometry"): "Неплотные соединения (Loose geometry)",
+        ("*", "Inverted normals"): "Перевернутые нормали (Inverted normals)",
+        ("*", "Non-manifold"): "Non-manifold геометрия",
+        ("*", "Focus on elements:"): "Фокус на элементах:",
+        ("*", "Position:"): "Позиция:",
+        ("*", "Previous"): "Предыдущий",
+        ("*", "Next"): "Следующий",
+        ("*", "Additional solutions:"): "Дополнительные решения:",
+        ("*", "Fill holes (Fill)"): "Заполнить отверстия (Fill)",
+        ("*", "Connect edges (Bridge)"): "Соединить края (Bridge)",
+        ("*", "Merge by Distance"): "Объединить по расстоянию (Merge by Distance)",
+        ("*", "Delete extra"): "Удалить лишнее (Delete)",
+        ("*", "Flip Normals"): "Перевернуть нормали (Flip Normals)",
+        ("*", "Recalculate Outside"): "Выровнять наружу (Recalculate Outside)",
+        ("*", "Delete Loose"): "Удалить лишнее (Delete Loose)",
+        ("*", "Apply Boolean"): "Применить Boolean",
+        
+        # Сообщения
+        ("*", "No selected objects to check"): "Нет выделенных объектов для проверки",
+        ("*", "Geometry problems detected"): "Обнаружены проблемы в геометрии",
+        ("*", "All meshes are watertight"): "Все меши замкнуты",
+        ("*", "Select a mesh object"): "Выделите mesh-объект",
+        ("*", "First select a problem"): "Сначала выделите проблему",
+        ("*", "No problem elements found"): "Проблемные элементы не найдены",
+        ("*", "Focus on element {index}/{total}"): "Фокус на элементе {index}/{total}",
+        ("*", "Element not found"): "Элемент не найден",
+        ("*", "Normal check is only reliable for convex objects"): 
+            "Проверка нормалей корректна только для выпуклых объектов",
+        ("*", "For concave shapes use standard normal analysis tools"): 
+            "Для вогнутых форм используйте стандартные инструменты анализа нормалей",
+        
+        # Отчеты
+        ("Report", "Open boundaries: {count} edges (<2 faces)"): 
+            "Открытые границы (Open boundaries): {count} ребер (<2 граней)",
+        ("Report", "Loose geometry: {count} vertices (<2 edges)"): 
+            "Неплотные соединения (Loose geometry): {count} вершин (<2 ребер)",
+        ("Report", "Inverted normals: {count} polygons"): 
+            "Перевернутые нормали (Inverted normals): {count} полигонов",
+        ("Report", "Non-manifold: {edges} edges, {verts} vertices"): 
+            "Non-manifold: {edges} ребер, {verts} вершин",
+        ("Report", "Watertight"): "✅ Замкнут (Watertight)",
+        ("Report", "Not watertight"): "❌ НЕ замкнут (Not watertight)",
+        ("Report", "Fill holes"): "   - Заполнить отверстия (Fill)",
+        ("Report", "Connect edges"): "   - Соединить края (Bridge Edge Loops)",
+        ("Report", "Merge by distance"): "   - Объединить по расстоянию (Merge by Distance)",
+        ("Report", "Delete extra vertices"): "   - Удалить лишние вершины (Delete Vertices)",
+        ("Report", "Flip normals"): "   - Перевернуть нормали (Flip Normals)",
+        ("Report", "Recalculate outward"): "   - Выровнять наружу (Recalculate Outside)",
+        ("Report", "Delete internal surfaces"): "   - Удалить внутренние поверхности (Delete Loose)",
+        ("Report", "Apply boolean operation"): "   - Применить Boolean (Boolean Operation)",
+    }
+    
+    en_translations = {
+        # Английские версии (в основном идентичны оригиналу)
+        ("Operator", "Check Watertight Geometry"): "Check Watertight Geometry",
+        ("Operator", "Recheck Watertight Geometry"): "Recheck Watertight Geometry",
+        ("Operator", "Select Specific Problems"): "Select Specific Problems",
+        ("Operator", "Focus on Problem Element"): "Focus on Problem Element",
+        
+        # Панель
+        ("*", "Watertight Checker"): "Watertight Checker",
+        ("*", "Check"): "Check",
+        ("*", "Recheck"): "Recheck",
+        ("*", "Select problems:"): "Select problems:",
+        ("*", "Open boundaries"): "Open boundaries",
+        ("*", "Loose geometry"): "Loose geometry",
+        ("*", "Inverted normals"): "Inverted normals",
+        ("*", "Non-manifold"): "Non-manifold",
+        ("*", "Focus on elements:"): "Focus on elements:",
+        ("*", "Position:"): "Position:",
+        ("*", "Previous"): "Previous",
+        ("*", "Next"): "Next",
+        ("*", "Additional solutions:"): "Additional solutions:",
+        ("*", "Fill holes (Fill)"): "Fill holes (Fill)",
+        ("*", "Connect edges (Bridge)"): "Connect edges (Bridge)",
+        ("*", "Merge by Distance"): "Merge by Distance",
+        ("*", "Delete extra"): "Delete extra",
+        ("*", "Flip Normals"): "Flip Normals",
+        ("*", "Recalculate Outside"): "Recalculate Outside",
+        ("*", "Delete Loose"): "Delete Loose",
+        ("*", "Apply Boolean"): "Apply Boolean",
+        
+        # Сообщения
+        ("*", "No selected objects to check"): "No selected objects to check",
+        ("*", "Geometry problems detected"): "Geometry problems detected",
+        ("*", "All meshes are watertight"): "All meshes are watertight",
+        ("*", "Select a mesh object"): "Select a mesh object",
+        ("*", "First select a problem"): "First select a problem",
+        ("*", "No problem elements found"): "No problem elements found",
+        ("*", "Focus on element {index}/{total}"): "Focus on element {index}/{total}",
+        ("*", "Element not found"): "Element not found",
+        ("*", "Normal check is only reliable for convex objects"): 
+            "Normal check is only reliable for convex objects",
+        ("*", "For concave shapes use standard normal analysis tools"): 
+            "For concave shapes use standard normal analysis tools",
+    }
+    
+    translations_dict = {
+        "ru_RU": ru_translations,
+        "en_US": en_translations,
+    }
+    
+    bpy.app.translations.register(__name__, translations_dict)
+
+def unregister_translations():
+    bpy.app.translations.unregister(__name__)
+
 class MESH_OT_check_watertight(Operator):
     bl_idname = "mesh.check_watertight"
-    bl_label = "Check Watertight Geometry"
-    bl_description = "Проверяет замкнутость меша и наличие проблемных граней"
+    bl_label = _("Check Watertight Geometry")
+    bl_description = _("Проверяет замкнутость меша и наличие проблемных граней")
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -34,7 +165,7 @@ class MESH_OT_check_watertight(Operator):
         
         # Проверяем есть ли выделенные объекты
         if not context.selected_objects:
-            self.report({'INFO'}, "Нет выделенных объектов для проверки")
+            self.report({'INFO'}, _("No selected objects to check"))
             return {'CANCELLED'}
         
         # Сброс кэшированных данных на всех объектах перед началом новой проверки
@@ -105,27 +236,30 @@ class MESH_OT_check_watertight(Operator):
             # Формирование отчета с пояснениями и рекомендациями
             errors = []
             if boundary_edges:
-                errors.append(f"❌ Открытые границы (Open boundaries): {len(boundary_edges)} ребер (<2 граней)")
-                errors.append("   - Заполнить отверстия (Fill)")
-                errors.append("   - Соединить края (Bridge Edge Loops)")
+                errors.append(_("Open boundaries: {count} edges (<2 faces)").format(count=len(boundary_edges)))
+                errors.append(_("Fill holes"))
+                errors.append(_("Connect edges"))
                 
             if loose_verts:
-                errors.append(f"❌ Неплотные соединения (Loose geometry): {len(loose_verts)} вершин (<2 ребер)")
-                errors.append("   - Объединить по расстоянию (Merge by Distance)")
-                errors.append("   - Удалить лишние вершины (Delete Vertices)")
+                errors.append(_("Loose geometry: {count} vertices (<2 edges)").format(count=len(loose_verts)))
+                errors.append(_("Merge by distance"))
+                errors.append(_("Delete extra vertices"))
                 
             if inverted_normals:
-                errors.append(f"❌ Перевернутые нормали (Inverted normals): {len(inverted_normals)} полигонов")
-                errors.append("   - Перевернуть нормали (Flip Normals)")
-                errors.append("   - Выровнять наружу (Recalculate Outside)")
+                errors.append(_("Inverted normals: {count} polygons").format(count=len(inverted_normals)))
+                errors.append(_("Flip normals"))
+                errors.append(_("Recalculate outward"))
                 
             if non_manifold_edges or non_manifold_verts:
-                errors.append(f"❌ Non-manifold: {len(non_manifold_edges)} ребер, {len(non_manifold_verts)} вершин")
-                errors.append("   - Удалить внутренние поверхности (Delete Loose)")
-                errors.append("   - Применить Boolean (Boolean Operation)")
+                errors.append(_("Non-manifold: {edges} edges, {verts} vertices").format(
+                    edges=len(non_manifold_edges), 
+                    verts=len(non_manifold_verts)))
+                errors.append(_("Delete internal surfaces"))
+                errors.append(_("Apply boolean operation"))
 
-            status = "✅ Замкнут (Watertight)" if not errors else "❌ НЕ замкнут (Not watertight)"
-            results.append(f"{obj.name}: {status}")
+            status = _("Watertight") if not errors else _("Not watertight")
+            status_symbol = "✅ " + status if not errors else "❌ " + status
+            results.append(f"{obj.name}: {status_symbol}")
             
             if errors:
                 has_errors = True
@@ -154,16 +288,16 @@ class MESH_OT_check_watertight(Operator):
         scene[PREFIX + "report"] = report_msg
         
         if has_errors:
-            self.report({'WARNING'}, "Обнаружены проблемы в геометрии")
+            self.report({'WARNING'}, _("Geometry problems detected"))
         else:
-            self.report({'INFO'}, "Все меши замкнуты")
+            self.report({'INFO'}, _("All meshes are watertight"))
             
         return {'FINISHED'}
 
 class MESH_OT_recheck_watertight(Operator):
     bl_idname = "mesh.recheck_watertight"
-    bl_label = "Recheck Watertight Geometry"
-    bl_description = "Обновляет меш и проверяет замкнутость"
+    bl_label = _("Recheck Watertight Geometry")
+    bl_description = _("Обновляет меш и проверяет замкнутость")
     bl_options = {'REGISTER', 'UNDO'}
     
     def execute(self, context):
@@ -194,19 +328,19 @@ class MESH_OT_recheck_watertight(Operator):
 class MESH_OT_select_watertight_problems(Operator):
     """Выделить конкретный тип проблем"""
     bl_idname = "mesh.select_watertight_problems"
-    bl_label = "Select Specific Problems"
+    bl_label = _("Select Specific Problems")
     bl_options = {'REGISTER', 'UNDO'}
     
     problem_type: StringProperty(
         name="Problem Type",
-        description="Тип проблемы для выделения"
+        description=_("Тип проблемы для выделения")
     )
     
     def execute(self, context):
         log_message(f"Выделение проблемы типа: {self.problem_type}")
         obj = context.active_object
         if not obj or obj.type != 'MESH':
-            self.report({'ERROR'}, "Выделите mesh-объект")
+            self.report({'ERROR'}, _("Select a mesh object"))
             return {'CANCELLED'}
         
         mesh = obj.data
@@ -308,13 +442,13 @@ class MESH_OT_select_watertight_problems(Operator):
 class MESH_OT_focus_problem_element(Operator):
     """Фокусирует камеру на проблемном элементе"""
     bl_idname = "mesh.focus_problem_element"
-    bl_label = "Focus on Problem Element"
+    bl_label = _("Focus on Problem Element")
     bl_options = {'REGISTER', 'UNDO'}
     
     direction: EnumProperty(
         items=[
-            ('PREV', "Previous", "Фокус на предыдущем элементе"),
-            ('NEXT', "Next", "Фокус на следующем элементе")
+            ('PREV', _("Previous"), _("Фокус на предыдущем элементе")),
+            ('NEXT', _("Next"), _("Фокус на следующем элементе"))
         ],
         default='NEXT'
     )
@@ -322,7 +456,7 @@ class MESH_OT_focus_problem_element(Operator):
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'MESH':
-            self.report({'ERROR'}, "Выделите mesh-объект")
+            self.report({'ERROR'}, _("Select a mesh object"))
             return {'CANCELLED'}
         
         scene = context.scene
@@ -330,7 +464,7 @@ class MESH_OT_focus_problem_element(Operator):
         current_index = scene.get(PREFIX + "current_focus_index", -1)
         
         if not problem_type:
-            self.report({'INFO'}, "Сначала выделите проблему")
+            self.report({'INFO'}, _("First select a problem"))
             return {'CANCELLED'}
         
         # Получаем список элементов для текущей проблемы
@@ -348,7 +482,7 @@ class MESH_OT_focus_problem_element(Operator):
             elements = edges + verts
         
         if not elements:
-            self.report({'INFO'}, "Проблемные элементы не найдены")
+            self.report({'INFO'}, _("No problem elements found"))
             return {'CANCELLED'}
         
         # Обновляем индекс в зависимости от направления
@@ -394,9 +528,11 @@ class MESH_OT_focus_problem_element(Operator):
             
             # Фокусируем камеру на элементе без изменения масштаба
             MESH_OT_select_watertight_problems.focus_on_location(context, center)
-            self.report({'INFO'}, f"Фокус на элементе {current_index+1}/{len(elements)}")
+            self.report({'INFO'}, _("Focus on element {index}/{total}").format(
+                index=current_index+1, 
+                total=len(elements)))
         else:
-            self.report({'WARNING'}, "Элемент не найден")
+            self.report({'WARNING'}, _("Element not found"))
         
         bm.free()
         return {'FINISHED'}
@@ -405,7 +541,7 @@ class VIEW3D_PT_watertight_panel(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Инструменты'
-    bl_label = f"Watertight Checker v{PLUGIN_VERSION}"
+    bl_label = _("Watertight Checker") + f" v{PLUGIN_VERSION}"
 
     def draw(self, context):
         layout = self.layout
@@ -413,14 +549,14 @@ class VIEW3D_PT_watertight_panel(Panel):
         
         # Заголовок с версией
         row = layout.row()
-        row.label(text=f"Watertight Checker v{PLUGIN_VERSION}", icon='MESH_CUBE')
+        row.label(text=_(self.bl_label), icon='MESH_CUBE')
         
         col = layout.column()
         
         # Кнопки Check и Recheck в одном ряду
         row = col.row(align=True)
-        row.operator(MESH_OT_check_watertight.bl_idname, text="Check")
-        row.operator(MESH_OT_recheck_watertight.bl_idname, text="Recheck")
+        row.operator(MESH_OT_check_watertight.bl_idname, text=_("Check"))
+        row.operator(MESH_OT_recheck_watertight.bl_idname, text=_("Recheck"))
         
         # Кнопки выделения проблем
         # Преобразуем строку обратно в множество
@@ -429,46 +565,46 @@ class VIEW3D_PT_watertight_panel(Panel):
         
         if error_types:
             box = layout.box()
-            box.label(text="Выделить проблемы:")
+            box.label(text=_("Select problems:"))
             
             row = box.row()
             if "BOUNDARY" in error_types:
-                op = row.operator("mesh.select_watertight_problems", text="Открытые границы")
+                op = row.operator("mesh.select_watertight_problems", text=_("Open boundaries"))
                 op.problem_type = 'BOUNDARY'
             
             if "LOOSE" in error_types:
-                op = row.operator("mesh.select_watertight_problems", text="Неплотные соединения")
+                op = row.operator("mesh.select_watertight_problems", text=_("Loose geometry"))
                 op.problem_type = 'LOOSE'
             
             row = box.row()
             if "NORMALS" in error_types:
-                op = row.operator("mesh.select_watertight_problems", text="Перевернутые нормали")
+                op = row.operator("mesh.select_watertight_problems", text=_("Inverted normals"))
                 op.problem_type = 'NORMALS'
             
             if "MANIFOLD" in error_types:
-                op = row.operator("mesh.select_watertight_problems", text="Non-manifold")
+                op = row.operator("mesh.select_watertight_problems", text=_("Non-manifold"))
                 op.problem_type = 'MANIFOLD'
             
             # Кнопки навигации по проблемным элементам
             problem_type = scene.get(PREFIX + "current_problem_type", "")
             if problem_type and problem_type in error_types:
                 nav_box = box.box()
-                nav_box.label(text="Фокус на элементах:")
+                nav_box.label(text=_("Focus on elements:"))
                 
                 row = nav_box.row(align=True)
                 op_prev = row.operator("mesh.focus_problem_element", text="", icon='TRIA_LEFT')
                 op_prev.direction = 'PREV'
                 
                 # Отображение текущей позиции
-                row.label(text=f"Позиция: {scene.get(PREFIX + 'current_focus_index', -1) + 1}/{self.get_element_count(context, problem_type)}")
+                row.label(text=_("Position:") + f" {scene.get(PREFIX + 'current_focus_index', -1) + 1}/{self.get_element_count(context, problem_type)}")
                 
                 op_next = row.operator("mesh.focus_problem_element", text="", icon='TRIA_RIGHT')
                 op_next.direction = 'NEXT'
         
         # Предупреждение о проверке нормалей
         warning_box = layout.box()
-        warning_box.label(text="Проверка нормалей корректна только для выпуклых объектов")
-        warning_box.label(text="Для вогнутых форм используйте стандартные инструменты анализа нормалей")
+        warning_box.label(text=_("Normal check is only reliable for convex objects"))
+        warning_box.label(text=_("For concave shapes use standard normal analysis tools"))
         
         report = scene.get(PREFIX + "report", "")
         if report:
@@ -489,29 +625,29 @@ class VIEW3D_PT_watertight_panel(Panel):
             # Дополнительные решения
             if error_types:
                 solutions_box = box.box()
-                solutions_box.label(text="Дополнительные решения:")
+                solutions_box.label(text=_("Additional solutions:"))
                 
                 col_solution = solutions_box.column(align=True)
                 
                 if "BOUNDARY" in error_types:
                     row = col_solution.row()
-                    row.operator("mesh.fill", text="Заполнить отверстия (Fill)")
-                    row.operator("mesh.bridge_edge_loops", text="Соединить края (Bridge)")
+                    row.operator("mesh.fill", text=_("Fill holes (Fill)"))
+                    row.operator("mesh.bridge_edge_loops", text=_("Connect edges (Bridge)"))
                 
                 if "LOOSE" in error_types:
                     row = col_solution.row()
-                    row.operator("mesh.remove_doubles", text="Объединить по расстоянию (Merge by Distance)")
-                    row.operator("mesh.delete", text="Удалить лишнее (Delete)").type = 'VERT'
+                    row.operator("mesh.remove_doubles", text=_("Merge by Distance"))
+                    row.operator("mesh.delete", text=_("Delete extra")).type = 'VERT'
                 
                 if "NORMALS" in error_types:
                     row = col_solution.row()
-                    row.operator("mesh.flip_normals", text="Перевернуть нормали (Flip Normals)")
-                    row.operator("mesh.normals_make_consistent", text="Выровнять наружу (Recalculate Outside)").inside = False
+                    row.operator("mesh.flip_normals", text=_("Flip Normals"))
+                    row.operator("mesh.normals_make_consistent", text=_("Recalculate Outside")).inside = False
                 
                 if "MANIFOLD" in error_types:
                     row = col_solution.row()
-                    row.operator("mesh.delete_loose", text="Удалить лишнее (Delete Loose)")
-                    row.operator("mesh.intersect_boolean", text="Применить Boolean").operation = 'DIFFERENCE'
+                    row.operator("mesh.delete_loose", text=_("Delete Loose"))
+                    row.operator("mesh.intersect_boolean", text=_("Apply Boolean")).operation = 'DIFFERENCE'
 
     def get_element_count(self, context, problem_type):
         """Возвращает количество элементов для текущей проблемы"""
@@ -636,6 +772,9 @@ def register():
             log_message(f"Ошибка создания свойства {full_name}: {str(e)}")
             log_message(traceback.format_exc())
     
+    # Регистрируем переводы
+    register_translations()
+    
     log_message("Регистрация плагина завершена")
 
 def safe_unregister():
@@ -685,6 +824,9 @@ def safe_unregister():
         except Exception as e:
             log_message(f"Ошибка удаления класса {cls.__name__}: {str(e)}")
             log_message(traceback.format_exc())
+    
+    # Удаляем переводы
+    unregister_translations()
     
     log_message("Безопасное удаление завершено")
 
