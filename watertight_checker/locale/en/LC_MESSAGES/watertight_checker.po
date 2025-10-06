@@ -158,3 +158,27 @@ msgstr "Delete internal surfaces"
 
 msgid "Apply boolean operation"
 msgstr "Apply boolean operation"
+
+msgid "N-Gons"
+msgstr "N-Gons"
+
+msgid "Self-intersections"
+msgstr "Self-intersections"
+
+msgid "Triangulate"
+msgstr "Triangulate"
+
+msgid "Fix intersections"
+msgstr "Fix intersections"
+
+msgid "N-Gons: {count} faces (>4 vertices)"
+msgstr "N-Gons: {count} faces (>4 vertices)"
+
+msgid "Self-intersections: {count} faces"
+msgstr "Self-intersections: {count} faces"
+
+msgid "Triangulate faces"
+msgstr "Triangulate faces"
+
+msgid "Fix self-intersections"
+msgstr "Fix self-intersections"

@@ -9,7 +9,7 @@ from bpy_extras import view3d_utils
 from bpy.app.translations import pgettext as _, pgettext_data as data_
 
 # Версия плагина в формате "год.месяцдень.minor"
-PLUGIN_VERSION = "2025.530.5"  # 30 мая 2025, 5-я ревизия
+PLUGIN_VERSION = "2025.1006.1"  # 6 октября 2025, 1-я ревизия
 
 # Уникальные префиксы для свойств
 PREFIX = "wtc_"
@@ -43,6 +43,8 @@ def register_translations():
         ("*", "Loose geometry"): "Неплотные соединения (Loose geometry)",
         ("*", "Inverted normals"): "Перевернутые нормали (Inverted normals)",
         ("*", "Non-manifold"): "Non-manifold геометрия",
+        ("*", "N-Gons"): "N-угольники (N-Gons)",
+        ("*", "Self-intersections"): "Самопересечения (Self-intersections)",
         ("*", "Focus on elements:"): "Фокус на элементах:",
         ("*", "Position:"): "Позиция:",
         ("*", "Previous"): "Предыдущий",
@@ -56,6 +58,8 @@ def register_translations():
         ("*", "Recalculate Outside"): "Выровнять наружу (Recalculate Outside)",
         ("*", "Delete Loose"): "Удалить лишнее (Delete Loose)",
         ("*", "Apply Boolean"): "Применить Boolean",
+        ("*", "Triangulate"): "Триангулировать (Triangulate)",
+        ("*", "Fix intersections"): "Исправить пересечения (Fix intersections)",
         
         # Сообщения
         ("*", "No selected objects to check"): "Нет выделенных объектов для проверки",
@@ -80,6 +84,10 @@ def register_translations():
             "Перевернутые нормали (Inverted normals): {count} полигонов",
         ("Report", "Non-manifold: {edges} edges, {verts} vertices"): 
             "Non-manifold: {edges} ребер, {verts} вершин",
+        ("Report", "N-Gons: {count} faces (>4 vertices)"): 
+            "N-угольники (N-Gons): {count} граней (>4 вершин)",
+        ("Report", "Self-intersections: {count} faces"): 
+            "Самопересечения (Self-intersections): {count} граней",
         ("Report", "Watertight"): "✅ Замкнут (Watertight)",
         ("Report", "Not watertight"): "❌ НЕ замкнут (Not watertight)",
         ("Report", "Fill holes"): "   - Заполнить отверстия (Fill)",
@@ -90,6 +98,8 @@ def register_translations():
         ("Report", "Recalculate outward"): "   - Выровнять наружу (Recalculate Outside)",
         ("Report", "Delete internal surfaces"): "   - Удалить внутренние поверхности (Delete Loose)",
         ("Report", "Apply boolean operation"): "   - Применить Boolean (Boolean Operation)",
+        ("Report", "Triangulate faces"): "   - Триангулировать грани (Triangulate)",
+        ("Report", "Fix self-intersections"): "   - Исправить самопересечения (Fix intersections)",
     }
     
     en_translations = {
@@ -108,6 +118,8 @@ def register_translations():
         ("*", "Loose geometry"): "Loose geometry",
         ("*", "Inverted normals"): "Inverted normals",
         ("*", "Non-manifold"): "Non-manifold",
+        ("*", "N-Gons"): "N-Gons",
+        ("*", "Self-intersections"): "Self-intersections",
         ("*", "Focus on elements:"): "Focus on elements:",
         ("*", "Position:"): "Position:",
         ("*", "Previous"): "Previous",
@@ -121,6 +133,8 @@ def register_translations():
         ("*", "Recalculate Outside"): "Recalculate Outside",
         ("*", "Delete Loose"): "Delete Loose",
         ("*", "Apply Boolean"): "Apply Boolean",
+        ("*", "Triangulate"): "Triangulate",
+        ("*", "Fix intersections"): "Fix intersections",
         
         # Сообщения
         ("*", "No selected objects to check"): "No selected objects to check",
@@ -180,6 +194,10 @@ class MESH_OT_check_watertight(Operator):
                 obj[PREFIX + "non_manifold_edges"] = []
             if hasattr(obj, PREFIX + "non_manifold_verts"):
                 obj[PREFIX + "non_manifold_verts"] = []
+            if hasattr(obj, PREFIX + "ngon_faces"):
+                obj[PREFIX + "ngon_faces"] = []
+            if hasattr(obj, PREFIX + "intersecting_faces"):
+                obj[PREFIX + "intersecting_faces"] = []
         
         for obj in context.selected_objects:
             if obj.type != 'MESH':
@@ -193,6 +211,8 @@ class MESH_OT_check_watertight(Operator):
             obj[PREFIX + "inverted_normals"] = []
             obj[PREFIX + "non_manifold_edges"] = []
             obj[PREFIX + "non_manifold_verts"] = []
+            obj[PREFIX + "ngon_faces"] = []
+            obj[PREFIX + "intersecting_faces"] = []
             
             # Принудительное обновление данных меша
             bm = bmesh.new()
@@ -233,6 +253,16 @@ class MESH_OT_check_watertight(Operator):
             if non_manifold_edges or non_manifold_verts:
                 error_types.add("MANIFOLD")
 
+            # Проверка 5: N-gons (грани с более чем 4 вершинами)
+            ngon_faces = [f for f in bm.faces if len(f.verts) > 4]
+            if ngon_faces:
+                error_types.add("NGONS")
+
+            # Проверка 6: Самопересечения
+            intersecting_faces = self.check_self_intersections(bm, obj)
+            if intersecting_faces:
+                error_types.add("INTERSECTIONS")
+
             # Формирование отчета с пояснениями и рекомендациями
             errors = []
             if boundary_edges:
@@ -257,6 +287,14 @@ class MESH_OT_check_watertight(Operator):
                 errors.append("   - " + _("Delete internal surfaces"))
                 errors.append("   - " + _("Apply boolean operation"))
 
+            if ngon_faces:
+                errors.append("❌ " + _("N-Gons: {count} faces (>4 vertices)").format(count=len(ngon_faces)))
+                errors.append("   - " + _("Triangulate faces"))
+                
+            if intersecting_faces:
+                errors.append("❌ " + _("Self-intersections: {count} faces").format(count=len(intersecting_faces)))
+                errors.append("   - " + _("Fix self-intersections"))
+
             status = _("Watertight") if not errors else _("Not watertight")
             status_symbol = "✅ " + status if not errors else "❌ " + status
             results.append(f"{obj.name}: {status_symbol}")
@@ -271,6 +309,8 @@ class MESH_OT_check_watertight(Operator):
                 obj[PREFIX + "inverted_normals"] = [f.index for f in inverted_normals]
                 obj[PREFIX + "non_manifold_edges"] = [e.index for e in non_manifold_edges]
                 obj[PREFIX + "non_manifold_verts"] = [v.index for v in non_manifold_verts]
+                obj[PREFIX + "ngon_faces"] = [f.index for f in ngon_faces]
+                obj[PREFIX + "intersecting_faces"] = [f.index for f in intersecting_faces]
             else:
                 # Очищаем данные о проблемах, если их нет
                 obj[PREFIX + "boundary_edges"] = []
@@ -278,6 +318,8 @@ class MESH_OT_check_watertight(Operator):
                 obj[PREFIX + "inverted_normals"] = []
                 obj[PREFIX + "non_manifold_edges"] = []
                 obj[PREFIX + "non_manifold_verts"] = []
+                obj[PREFIX + "ngon_faces"] = []
+                obj[PREFIX + "intersecting_faces"] = []
 
             bm.free()
 
@@ -293,6 +335,103 @@ class MESH_OT_check_watertight(Operator):
             self.report({'INFO'}, _("All meshes are watertight"))
             
         return {'FINISHED'}
+
+    def check_self_intersections(self, bm, obj):
+        """Проверяет геометрию на самопересечения"""
+        import mathutils
+        from mathutils.bvhtree import BVHTree
+        
+        intersecting_faces = []
+        
+        try:
+            # Создаем BVH дерево для всех граней
+            bvh = BVHTree.FromBMesh(bm, epsilon=0.0001)
+            
+            # Находим пересекающиеся пары граней
+            overlapping = bvh.overlap(bvh)
+            
+            if overlapping:
+                # Проверяем каждую пару на реальное пересечение
+                for pair in overlapping:
+                    face1_idx, face2_idx = pair
+                    
+                    # Пропускаем, если это одна и та же грань
+                    if face1_idx == face2_idx:
+                        continue
+                    
+                    face1 = bm.faces[face1_idx]
+                    face2 = bm.faces[face2_idx]
+                    
+                    # Пропускаем смежные грани (имеющие общие вершины)
+                    if self.are_faces_adjacent(face1, face2):
+                        continue
+                    
+                    # Проверяем пересечение граней
+                    if self.check_face_intersection(face1, face2):
+                        # Добавляем обе грани в список пересекающихся
+                        if face1_idx not in [f.index for f in intersecting_faces]:
+                            intersecting_faces.append(face1)
+                        if face2_idx not in [f.index for f in intersecting_faces]:
+                            intersecting_faces.append(face2)
+                            
+        except Exception as e:
+            log_message(f"Ошибка при проверке самопересечений: {str(e)}")
+            
+        return intersecting_faces
+
+    def are_faces_adjacent(self, face1, face2):
+        """Проверяет, являются ли грани смежными (имеют общие вершины)"""
+        verts1 = {v for v in face1.verts}
+        verts2 = {v for v in face2.verts}
+        return len(verts1.intersection(verts2)) > 0
+
+    def check_face_intersection(self, face1, face2):
+        """Проверяет пересечение двух граней"""
+        try:
+            # Преобразуем вершины в векторы
+            verts1 = [v.co for v in face1.verts]
+            verts2 = [v.co for v in face2.verts]
+            
+            # Проверяем пересечение полигонов
+            intersection = self.polygons_intersect(verts1, verts2)
+            return intersection
+            
+        except Exception as e:
+            log_message(f"Ошибка при проверке пересечения граней: {str(e)}")
+            return False
+
+    def polygons_intersect(self, poly1, poly2):
+        """Проверяет пересечение двух полигонов"""
+        # Упрощенная проверка пересечения bounding box
+        bb1_min = Vector((
+            min(v.x for v in poly1),
+            min(v.y for v in poly1),
+            min(v.z for v in poly1)
+        ))
+        bb1_max = Vector((
+            max(v.x for v in poly1),
+            max(v.y for v in poly1),
+            max(v.z for v in poly1)
+        ))
+        
+        bb2_min = Vector((
+            min(v.x for v in poly2),
+            min(v.y for v in poly2),
+            min(v.z for v in poly2)
+        ))
+        bb2_max = Vector((
+            max(v.x for v in poly2),
+            max(v.y for v in poly2),
+            max(v.z for v in poly2)
+        ))
+        
+        # Проверка пересечения bounding boxes
+        if (bb1_max.x < bb2_min.x or bb1_min.x > bb2_max.x or
+            bb1_max.y < bb2_min.y or bb1_min.y > bb2_max.y or
+            bb1_max.z < bb2_min.z or bb1_min.z > bb2_max.z):
+            return False
+            
+        return True
 
 class MESH_OT_recheck_watertight(Operator):
     bl_idname = "mesh.recheck_watertight"
@@ -401,6 +540,22 @@ class MESH_OT_select_watertight_problems(Operator):
                     vert = bm.verts[idx]
                     vert.select = True
                     all_elements.append(vert)
+        elif self.problem_type == 'NGONS':
+            indices = obj.get(PREFIX + "ngon_faces", [])
+            log_message(f"Найдено {len(indices)} N-gon граней")
+            for idx in indices:
+                if idx < len(bm.faces):
+                    face = bm.faces[idx]
+                    face.select = True
+                    all_elements.append(face)
+        elif self.problem_type == 'INTERSECTIONS':
+            indices = obj.get(PREFIX + "intersecting_faces", [])
+            log_message(f"Найдено {len(indices)} пересекающихся граней")
+            for idx in indices:
+                if idx < len(bm.faces):
+                    face = bm.faces[idx]
+                    face.select = True
+                    all_elements.append(face)
         
         # Обновляем меш
         bmesh.update_edit_mesh(mesh)
@@ -480,6 +635,10 @@ class MESH_OT_focus_problem_element(Operator):
             edges = list(obj.get(PREFIX + "non_manifold_edges", []))
             verts = list(obj.get(PREFIX + "non_manifold_verts", []))
             elements = edges + verts
+        elif problem_type == 'NGONS':
+            elements = list(obj.get(PREFIX + "ngon_faces", []))
+        elif problem_type == 'INTERSECTIONS':
+            elements = list(obj.get(PREFIX + "intersecting_faces", []))
         
         if not elements:
             self.report({'INFO'}, _("No problem elements found"))
@@ -516,6 +675,10 @@ class MESH_OT_focus_problem_element(Operator):
                 element = bm.edges[element_idx]
             elif element_idx < len(bm.edges) + len(bm.verts):
                 element = bm.verts[element_idx - len(bm.edges)]
+        elif problem_type == 'NGONS' and element_idx < len(bm.faces):
+            element = bm.faces[element_idx]
+        elif problem_type == 'INTERSECTIONS' and element_idx < len(bm.faces):
+            element = bm.faces[element_idx]
         
         if element:
             # Вычисляем центр элемента
@@ -585,6 +748,15 @@ class VIEW3D_PT_watertight_panel(Panel):
                 op = row.operator("mesh.select_watertight_problems", text=_("Non-manifold"))
                 op.problem_type = 'MANIFOLD'
             
+            row = box.row()
+            if "NGONS" in error_types:
+                op = row.operator("mesh.select_watertight_problems", text=_("N-Gons"))
+                op.problem_type = 'NGONS'
+            
+            if "INTERSECTIONS" in error_types:
+                op = row.operator("mesh.select_watertight_problems", text=_("Self-intersections"))
+                op.problem_type = 'INTERSECTIONS'
+            
             # Кнопки навигации по проблемным элементам
             problem_type = scene.get(PREFIX + "current_problem_type", "")
             if problem_type and problem_type in error_types:
@@ -650,6 +822,14 @@ class VIEW3D_PT_watertight_panel(Panel):
                     row = col_solution.row()
                     row.operator("mesh.delete_loose", text=_("Delete Loose"))
                     row.operator("mesh.intersect_boolean", text=_("Apply Boolean")).operation = 'DIFFERENCE'
+                
+                if "NGONS" in error_types:
+                    row = col_solution.row()
+                    row.operator("mesh.quads_convert_to_tris", text=_("Triangulate"))
+                
+                if "INTERSECTIONS" in error_types:
+                    row = col_solution.row()
+                    row.operator("mesh.remove_doubles", text=_("Fix intersections"))
 
     def get_element_count(self, context, problem_type):
         """Возвращает количество элементов для текущей проблемы"""
@@ -667,6 +847,10 @@ class VIEW3D_PT_watertight_panel(Panel):
             edges = len(obj.get(PREFIX + "non_manifold_edges", []))
             verts = len(obj.get(PREFIX + "non_manifold_verts", []))
             return edges + verts
+        elif problem_type == 'NGONS':
+            return len(obj.get(PREFIX + "ngon_faces", []))
+        elif problem_type == 'INTERSECTIONS':
+            return len(obj.get(PREFIX + "intersecting_faces", []))
         
         return 0
 
@@ -747,7 +931,9 @@ def register():
         ("loose_verts", "Индексы вершин с недостаточным количеством соединений"),
         ("inverted_normals", "Индексы полигонов с перевернутыми нормалями"),
         ("non_manifold_edges", "Индексы не manifold ребер"),
-        ("non_manifold_verts", "Индексы не manifold вершин")
+        ("non_manifold_verts", "Индексы не manifold вершин"),
+        ("ngon_faces", "Индексы N-gon граней (более 4 вершин)"),
+        ("intersecting_faces", "Индексы самопересекающихся граней")
     ]
     
     for prop_name, description in obj_properties:
@@ -789,7 +975,9 @@ def safe_unregister():
         "wtc_loose_verts", 
         "wtc_inverted_normals", 
         "wtc_non_manifold_edges", 
-        "wtc_non_manifold_verts"
+        "wtc_non_manifold_verts",
+        "wtc_ngon_faces",
+        "wtc_intersecting_faces"
     ]
     scene_props = ["wtc_report", "wtc_error_types", "wtc_current_problem_type", "wtc_current_focus_index"]
     

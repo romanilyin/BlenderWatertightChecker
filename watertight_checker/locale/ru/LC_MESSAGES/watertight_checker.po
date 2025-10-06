@@ -158,3 +158,27 @@ msgstr "   - Удалить внутренние поверхности (Delete 
 
 msgid "Apply boolean operation"
 msgstr "   - Применить Boolean (Boolean Operation)"
+
+msgid "N-Gons"
+msgstr "N-угольники (N-Gons)"
+
+msgid "Self-intersections"
+msgstr "Самопересечения (Self-intersections)"
+
+msgid "Triangulate"
+msgstr "Триангулировать (Triangulate)"
+
+msgid "Fix intersections"
+msgstr "Исправить пересечения (Fix intersections)"
+
+msgid "N-Gons: {count} faces (>4 vertices)"
+msgstr "N-угольники (N-Gons): {count} граней (>4 вершин)"
+
+msgid "Self-intersections: {count} faces"
+msgstr "Самопересечения (Self-intersections): {count} граней"
+
+msgid "Triangulate faces"
+msgstr "   - Триангулировать грани (Triangulate)"
+
+msgid "Fix self-intersections"
+msgstr "   - Исправить самопересечения (Fix intersections)"
